@@ -1,7 +1,3 @@
-from net_exceptions import HiddenLayerException
-from net_exceptions import LayerTypeException
-
-
 class Layer:
     def __init__(self, n_neurons, type, f_activation=None):
         self.n_neurons = n_neurons
@@ -22,3 +18,13 @@ class Layer:
             print("Укажите тип функции активации")
 
         self.f_activation = f_activation
+
+
+class HiddenLayerException(Exception):
+    def __init__(self):
+        Exception.__init__(self)
+
+
+class LayerTypeException(Exception):
+    def __init__(self):
+        Exception.__init__(self)
