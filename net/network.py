@@ -1,5 +1,4 @@
 import numpy as np
-from net_exceptions import NetArchitectureException
 
 
 class Network:
@@ -90,3 +89,8 @@ class Network:
 
     def set_weights(self, weights):
         self.weights = weights
+
+
+class NetArchitectureException(Exception):
+    def __init__(self):
+        Exception.__init__(self)
