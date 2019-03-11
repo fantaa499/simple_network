@@ -14,11 +14,12 @@ class BackPropagation:
     def fit(self, X, y, n_epoch):
         f_activations = self.net.f_activations
         X_with_bias = self.__add_bias_to_X(X)
+        y_fix = self.__check_y(y)
         for _ in range(n_epoch):
             weights = self.net.weights
             self.__forward_propagation(X_with_bias, weights, f_activations)
-            self.__save_loss(y)
-            self.__back_propagation(y, weights, f_activations)
+            self.__save_loss(y_fix)
+            self.__back_propagation(y_fix, weights, f_activations)
 
     def __forward_propagation(self, X, weights, f_activations):
         temp_in = X
@@ -87,6 +88,21 @@ class BackPropagation:
         # Метрика - среднеквадратичное отклонение
         loss = ((y - self.current_signals[-1])**2).mean()
         self.losses.append(loss)
+
+    def __check_y(self, y):
+        # Алгоритм работает только с массивами numpy
+        y_fix = y
+        if type(y) is list:
+            y_fix = np.array(y)
+        # Также для коректного вычитания векторов, необходимо четко определить,
+        # что y - это столбец
+        try:
+            # Если вызов второй размерности вызывает ошибку, то вектор представлен в виде
+            # строки, необходимо явно указать, что это столбец
+            y_fix.shape[1]
+        except IndexError:
+            y_fix.resize(y_fix.shape[0], 1)
+        return y_fix
 
     def predict(self, X):
         weights = self.net.weights
