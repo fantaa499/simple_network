@@ -4,7 +4,6 @@ import numpy as np
 class BackPropagation:
     def __init__(self, network, l_rate=1):
         self.net = network
-        self.BIAS = 1
         self.l_rate = l_rate
         # Вспомогательная переменная в которой будут храниться
         # промежуточные значения во время обучения
@@ -12,28 +11,23 @@ class BackPropagation:
         self.losses = []
 
     def fit(self, X, y, n_epoch):
-        f_activations = self.net.f_activations
-        X_with_bias = self.__add_bias_to_X(X)
         for _ in range(n_epoch):
-            weights = self.net.weights
-            self.__forward_propagation(X_with_bias, weights, f_activations)
-            self.__save_loss(y)
-            self.__back_propagation(y, weights, f_activations)
+            self._forward_propagation(X)
+            self._save_loss(y)
+            self._back_propagation(y)
 
-    def __forward_propagation(self, X, weights, f_activations):
+    def _forward_propagation(self, X):
         temp_in = X
-        temp_out = 0
         # В current_signals хранятся значения сигналов после каждого слоя,
         # начиная со входа, заканчивая выходом.
         self.current_signals[:] = []
-        self.current_signals.append(X)
         # Прямое распростронение
-        for w_layer, f in zip(weights, f_activations):
-            temp_out = f(np.dot(temp_in, w_layer))
+        for layer in self.net.layers:
+            temp_out = layer.forward(temp_in)
             self.current_signals.append(temp_out)
             temp_in = temp_out
 
-    def __back_propagation(self, y, weights, f_activation):
+    def __back_propagation(self, y):
         # результат храниться в последнем элементе массива
         # current_signals
         corrected_ws = []
@@ -75,13 +69,6 @@ class BackPropagation:
         # TODO: corrected = net.weights ??
         self.net.set_weights(corrected_ws[::-1])
 
-    def __add_bias_to_X(self, X):
-        # Добавляем каждому сэмплу элемент отклонения
-        n_in = len(X)
-        bias = np.zeros(n_in) + self.BIAS
-        bias.resize(n_in, 1)
-        X_with_bias = np.hstack([X, bias])
-        return X_with_bias
 
     def __save_loss(self, y):
         # Метрика - среднеквадратичное отклонение

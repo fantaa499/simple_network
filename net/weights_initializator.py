@@ -33,8 +33,3 @@ class WeightsInitializator:
         weights *= np.sqrt(2/weights.size)
         bias = np.zeros(1, height) + self.BIAS
         return np.vstack(bias, weights)
-
-    def
-
-
-

@@ -66,6 +66,17 @@ class Dense(Layer):
         del self.weights
 
 
+
+class Softmax(Layer):
+    def forward(self, signal):
+        f = np.exp(signal)/np.sum(np.exp(signal))
+        return f
+
+    # TODO: исправить производную софтмакс
+    def back(self, signal):
+        f = 1
+        return f
+
 # Функции активации:
 class ReLu(Layer):
     def forward(self, signal):
