@@ -42,13 +42,17 @@ class Input(Layer):
 class Dense(Layer):
     def __init__(self, n_neurons):
         self.n_neurons = n_neurons
+        self._bias = []
         self._weights = []
 
+    # TODO: проверить размерности
     def forward(self, signal):
-        return np.dot(self.weights, signal)
+        return np.dot(signal, self.weights)
 
     def back(self, signal):
-        return np.dot(signal, self.weights.T)
+        dw = np.dot(signal, self.weights.T)
+        db = signal
+        return dw, db
 
     def has_neurons(self):
         return True
@@ -61,21 +65,29 @@ class Dense(Layer):
     def weights(self, weights):
         self._weights = weights
 
-    @weights.deleter
-    def weights(self):
-        del self.weights
+    @property
+    def bias(self):
+        return self._bias
 
+    @bias.setter
+    def bias(self, bias):
+        self._bias = bias
 
 
 class Softmax(Layer):
     def forward(self, signal):
-        f = np.exp(signal)/np.sum(np.exp(signal))
+        f = np.exp(signal) / np.sum(np.exp(signal))
         return f
 
-    # TODO: исправить производную софтмакс
     def back(self, signal):
-        f = 1
+        # Запишим сигнал в форме столбца
+        s = signal.reshape(-1, 1)
+        f = np.diagflat(s) - np.dot(s, s.T)
         return f
+
+    def has_neurons(self):
+        return False
+
 
 # Функции активации:
 class ReLu(Layer):
@@ -102,3 +114,25 @@ class Sigmoid(Layer):
 
     def has_neurons(self):
         return False
+
+
+# TODO: для каждого типа слоя закрепить абстрактный слой
+class LossSoftmax(Layer):
+    def __init__(self):
+        self._y = []
+
+    def forward(self, signal):
+        L = np.sum(-self._y * np.log(signal))
+        return L
+
+    def back(self, signal):
+        dL = -self._y / signal
+        return dL
+
+    @property
+    def y(self):
+        return self._y
+
+    @y.setter
+    def y(self, y):
+        self._y = y

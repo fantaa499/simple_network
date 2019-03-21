@@ -1,11 +1,13 @@
 import numpy as np
 
+from weights_initializator import WeightsInitializator
+
 
 class Network:
-    def __init__(self, layers, init=True):
+    def __init__(self, layers):
         self.layers = layers
-
-
+        self.init_weights()
+        self.n_layers =
 
     def __check_layers_arch(self):
         try:
@@ -42,15 +44,9 @@ class Network:
             quantity += width*height
         return quantity
 
-    def __add_bias(self):
-        # Добавляем смещение - нейрон который не зависит от входа.
-        # Он должен быть во всех слоях кроме выходного.
-        for i, layer in enumerate(self.layers):
-            if layer.type != "out":
-                self.layers[i].n_neurons += 1
-
-    def set_weights(self, weights):
-        self.weights = weights
+    def init_weights(self):
+        w_init = WeightsInitializator(self.layers)
+        w_init.set_weights_matrix()
 
 
 class NetArchitectureException(Exception):

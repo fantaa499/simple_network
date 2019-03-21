@@ -23,8 +23,9 @@ class WeightsInitializator:
                 # Инициализируем веса,
                 # весов всего n_neurons_prev*n_neurons_curr + 1*n_neurons_curr
                 # то есть учитывается смещение
-                weights = self._init_weights(n_neurons_prev, n_neurons_curr)
+                weights, bias = self._init_weights(n_neurons_prev, n_neurons_curr)
                 self.layers[i].weights = weights
+                self.layers[i].bias = bias
                 n_neurons_prev = n_neurons_curr
 
     def _init_weights(self, width, height):
@@ -32,4 +33,4 @@ class WeightsInitializator:
         weights = np.random.randn(width, height)
         weights *= np.sqrt(2/weights.size)
         bias = np.zeros(1, height) + self.BIAS
-        return np.vstack(bias, weights)
+        return weights, bias

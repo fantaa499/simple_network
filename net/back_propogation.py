@@ -11,10 +11,12 @@ class BackPropagation:
         self.losses = []
 
     def fit(self, X, y, n_epoch):
-        for _ in range(n_epoch):
+        for i in range(n_epoch):
             self._forward_propagation(X)
             self._save_loss(y)
             self._back_propagation(y)
+            if i % 100 == 0:
+                print(f"Epoch {i}: loss = {self.current_signals[-1]}\n")
 
     def _forward_propagation(self, X):
         temp_in = X
@@ -27,52 +29,25 @@ class BackPropagation:
             self.current_signals.append(temp_out)
             temp_in = temp_out
 
-    def __back_propagation(self, y):
-        # результат храниться в последнем элементе массива
-        # current_signals
-        corrected_ws = []
-        reversed_w = weights[::-1]
-        reversed_f = f_activation[::-1]
-        reversed_cur_sig = self.current_signals[::-1]
-        # Флаг для первой итерации, на ней необходимо вычислить ошибку,
-        # зная y
-        is_first_iteration = True
-        answer = y
-        # Обратное распростронение начинается с конца, поэтому используем
-        # развернутые массивы
-        # Также в массиве reversed_cur_sig на один элемент больше чем в других массивах.
-        # Вынесем первый элемент который равен предсказанию на последнем слое
-        # в отдельную переменную
-        current_sig = reversed_cur_sig[0]
-        for w_layer, f, follow_sig in zip(reversed_w, reversed_f, reversed_cur_sig[1:]):
-            # temp error показывает как сильно нужно изменять веса
-            if is_first_iteration:
-                temp_error = answer - current_sig
-                is_first_iteration = False
+    def _back_propagation(self, y):
+        # Последний слой считает ошибку, для нее требуются правильные ответы
+        self.net.layers[-1].y = y
+        l_indexes = range(self.net.n_layers)
+        # Инициализаируем обратно распростроняющийся сигнал ds
+        ds = 1
+        for i in reversed(l_indexes):
+            # layer указывает на тоже место в памяти, что и self.net.layers[i]
+            layer = self.net.layers[i]
+            if self.net.layers[i].has_neurons():
+                dw, db = layer.back(ds)
+                layer.weights -= dw * l_rate
+                layer.bias -= db * l_rate
+                ds = dw
             else:
-                # На i шаге мы находимся на i слое с конца и хотим обновить
-                # i-е веса. А так как мы начинаем распростронение с i-1 слоя
-                # с конца, необходимо использовать i-1 веса
-                temp_error = np.dot(temp_delta, w_previous_layer.T)
-            # temp delta указывает в какую сторону необходимо изменять веса
-            temp_delta = temp_error * f(current_sig, deriv=True)
-            # Коррекция весов.
-            d_w = np.dot(follow_sig.T, temp_delta)
-            # Корректированные веса
-            w_corr_temp = w_layer + self.l_rate * d_w
-            corrected_ws.append(w_corr_temp)
-            # Обновление локальных переменных
-            w_previous_layer = w_layer
-            current_sig = follow_sig
-        # обновляем веса сети, необходимо развернуть
-        # массив, так как веса добавлялись в обратном порядке
-        # TODO: corrected = net.weights ??
-        self.net.set_weights(corrected_ws[::-1])
+                ds *= layer.back(self.current_signals[i])
 
-
-    def __save_loss(self, y):
-        # Метрика - среднеквадратичное отклонение
-        loss = ((y - self.current_signals[-1])**2).mean()
+    def _save_loss(self):
+        loss = self.current_signals[-1]
         self.losses.append(loss)
 
     def predict(self, X):
