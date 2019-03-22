@@ -1,9 +1,10 @@
 
 
 class BackPropagation:
-    def __init__(self, network, l_rate=1):
+    def __init__(self, network, l_rate=1, l_rate_decay=0.1):
         self.net = network
         self.l_rate = l_rate
+        self.l_rate_decay = l_rate_decay
         # Вспомогательная переменная в которой будут храниться
         # промежуточные значения во время обучения
         self.current_signals = []
@@ -19,6 +20,8 @@ class BackPropagation:
             self._back_propagation(y)
             if i % 100 == 0:
                 print(f"Epoch {i}: loss = {self.current_signals[-1]}\n")
+            if i % 20:
+                self.l_rate *= self.l_rate_decay
 
     def _forward_propagation(self, X):
         temp_in = X
