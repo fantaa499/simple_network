@@ -8,9 +8,12 @@ class BackPropagation:
         # промежуточные значения во время обучения
         self.current_signals = []
         self.losses = []
+        # номер эпохи
+        self.i_epoch = 0
 
     def fit(self, X, y, n_epoch):
         for i in range(n_epoch):
+            self.i_epoch = i
             self._forward_propagation(X)
             self._save_loss(y)
             self._back_propagation(y)
@@ -40,9 +43,9 @@ class BackPropagation:
             if self.net.layers[i].has_neurons():
                 dw, db = layer.back(ds)
                 # dlr попровка для оптимизации learning rate
-                dlr = layer.update_lr()
+                dlr = layer.update_lr(dw, self.i_epoch)
                 layer.weights -= dw * self.l_rate * dlr
-                layer.bias -= db * self.l_rate * dlr
+                layer.bias -= db * self.l_rate
                 ds = dw
             else:
                 ds *= layer.back(self.current_signals[i])
