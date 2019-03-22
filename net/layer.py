@@ -1,5 +1,6 @@
 import numpy as np
 from abc import abstractmethod, ABC
+from net.learning_rate import Adam
 
 
 # Абстрактный метод слоя
@@ -40,10 +41,11 @@ class Input(Layer):
 
 # Полносвязный слой
 class Dense(Layer):
-    def __init__(self, n_neurons):
+    def __init__(self, n_neurons, lr_optimizer="adam"):
         self.n_neurons = n_neurons
         self._bias = []
         self._weights = []
+        self._init_optimizer(lr_optimizer)
 
     # TODO: проверить размерности
     def forward(self, signal):
@@ -72,6 +74,14 @@ class Dense(Layer):
     @bias.setter
     def bias(self, bias):
         self._bias = bias
+
+    def _init_optimizer(self, optimizer_type):
+        if optimizer_type == "adam":
+            self.optimizer = Adam()
+
+    def update_lr(self, gradient, n_epoch):
+        dlr = self.optimizer.update(gradient, n_epoch)
+        return dlr
 
 
 class Softmax(Layer):

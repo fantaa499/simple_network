@@ -1,4 +1,3 @@
-import numpy as np
 
 
 class BackPropagation:
@@ -40,8 +39,10 @@ class BackPropagation:
             layer = self.net.layers[i]
             if self.net.layers[i].has_neurons():
                 dw, db = layer.back(ds)
-                layer.weights -= dw * l_rate
-                layer.bias -= db * l_rate
+                # dlr попровка для оптимизации learning rate
+                dlr = layer.update_lr()
+                layer.weights -= dw * self.l_rate * dlr
+                layer.bias -= db * self.l_rate * dlr
                 ds = dw
             else:
                 ds *= layer.back(self.current_signals[i])
@@ -51,10 +52,7 @@ class BackPropagation:
         self.losses.append(loss)
 
     def predict(self, X):
-        weights = self.net.weights
-        f_activations = self.net.f_activations
-        X_with_bias = self.__add_bias_to_X(X)
-        self.__forward_propagation(X_with_bias, weights, f_activations)
+        self._forward_propagation(X)
         prediction = self.current_signals[-1]
         return prediction
 
