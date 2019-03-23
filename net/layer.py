@@ -1,12 +1,13 @@
 import numpy as np
 from abc import abstractmethod, ABC
-from net.learning_rate import Adam
+from net.learning_rate import Adam, Normal
 
 
 # Абстрактный метод слоя
 class Layer(ABC):
     def __init__(self):
-        pass
+        # Вспомогательная переменная, чтобы предотвратить деление на 0
+        self.EPS = 0.001
 
     # Обязательный метод для прямого прохода
     @abstractmethod
@@ -15,7 +16,7 @@ class Layer(ABC):
 
     # Обязательный метод для обратного прохода
     @abstractmethod
-    def back(self, signal):
+    def back(self, signal, ds):
         pass
 
     # Обязательный метод для легкой инициализации матриц весов
@@ -30,10 +31,10 @@ class Input(Layer):
         self.n_neurons = n_neurons
 
     def forward(self, signal):
-        return signal
+        return np.array(signal)
 
-    def back(self, signal):
-        return signal
+    def back(self, signal, ds):
+        return ds * signal
 
     def has_neurons(self):
         return True
@@ -41,20 +42,20 @@ class Input(Layer):
 
 # Полносвязный слой
 class Dense(Layer):
-    def __init__(self, n_neurons, lr_optimizer="adam"):
+    def __init__(self, n_neurons, lr_optimizer="normal"):
         self.n_neurons = n_neurons
         self._bias = []
         self._weights = []
         self._init_optimizer(lr_optimizer)
 
-    # TODO: проверить размерности
     def forward(self, signal):
-        return np.dot(signal, self.weights)
+        return np.dot(signal, self.weights) + self.bias
 
-    def back(self, signal):
-        dw = np.dot(signal, self.weights.T)
-        db = signal
-        return dw, db
+    def back(self, signal, ds):
+        dw = np.dot(signal.T, ds)
+        db = np.sum(ds, axis=0)
+        new_ds = np.dot(ds, self.weights.T)
+        return dw, db, new_ds
 
     def has_neurons(self):
         return True
@@ -78,6 +79,8 @@ class Dense(Layer):
     def _init_optimizer(self, optimizer_type):
         if optimizer_type == "adam":
             self.optimizer = Adam()
+        if optimizer_type == "normal":
+            self.optimizer = Normal()
 
     def update_lr(self, gradient, n_epoch):
         dlr = self.optimizer.update(gradient, n_epoch)
@@ -86,14 +89,18 @@ class Dense(Layer):
 
 class Softmax(Layer):
     def forward(self, signal):
-        f = np.exp(signal) / np.sum(np.exp(signal))
-        return f
+        f = map(lambda x: x/(np.sum(x)), np.exp(signal))
+        return list(f)
 
-    def back(self, signal):
+    def back(self, signal, ds):
         # Запишим сигнал в форме столбца
-        s = signal.reshape(-1, 1)
-        f = np.diagflat(s) - np.dot(s, s.T)
-        return f
+        gradient = []
+        for s, ds_one_sample in zip(signal, ds):
+            s = s.reshape(-1, 1)
+            f = np.diagflat(s) - np.dot(s, s.T)
+            gradient_one_sample = np.dot(f, ds_one_sample)
+            gradient.append(gradient_one_sample)
+        return np.array(gradient)
 
     def has_neurons(self):
         return False
@@ -102,12 +109,15 @@ class Softmax(Layer):
 # Функции активации:
 class ReLu(Layer):
     def forward(self, signal):
-        f = signal if signal > 0 else 0
+        f = signal
+        f[signal < 0] = 0
         return f
 
-    def back(self, signal):
-        f = 1 if signal > 0 else 0
-        return f
+    def back(self, signal, ds):
+        f = signal
+        f[:] = 0
+        f[signal > 0] = 1
+        return ds * f
 
     def has_neurons(self):
         return False
@@ -127,17 +137,22 @@ class Sigmoid(Layer):
 
 
 # TODO: для каждого типа слоя закрепить абстрактный слой
-class LossSoftmax(Layer):
+class LossLayer(Layer):
     def __init__(self):
         self._y = []
 
-    def forward(self, signal):
-        L = np.sum(-self._y * np.log(signal))
-        return L
+    def has_neurons(self):
+        return False
 
+    # Обязательный метод для прямого прохода
+    @abstractmethod
+    def forward(self, signal):
+        pass
+
+    # Обязательный метод для обратного прохода
+    @abstractmethod
     def back(self, signal):
-        dL = -self._y / signal
-        return dL
+        pass
 
     @property
     def y(self):
@@ -146,3 +161,16 @@ class LossSoftmax(Layer):
     @y.setter
     def y(self, y):
         self._y = y
+
+
+class LossSoftmax(LossLayer):
+    def forward(self, signal):
+        L_sum = np.sum(-1 * (self._y * np.log(signal)))
+        L = L_sum / len(signal)
+        return L
+
+    def back(self, signal, ds):
+        dL = np.array(-1 * np.divide(self._y, signal))
+        return ds * dL
+
+

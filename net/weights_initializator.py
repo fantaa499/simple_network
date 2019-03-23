@@ -32,5 +32,5 @@ class WeightsInitializator:
         # Хорошая инициализация для случая, когда используется функция активации ReLu
         weights = np.random.randn(width, height)
         weights *= np.sqrt(2/weights.size)
-        bias = np.zeros(1, height) + self.BIAS
+        bias = np.zeros((1, height)) + self.BIAS
         return weights, bias
