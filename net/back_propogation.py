@@ -11,29 +11,28 @@ class BackPropagation:
         self.current_signals = []
         self.losses = []
         # номер эпохи
-        self.i_epoch = 0
+        self._i_epoch = 0
+        self._l_rate = 0
+        self._l_rate_decay = 0
+        self._l_rate_decay_n_epoch = 0
 
     def fit(self, X, y, n_epoch, batch_size=None, l_rate=1, l_rate_decay=0.1, l_rate_decay_n_epoch=20):
-        self.l_rate = l_rate
+        self._l_rate = l_rate
         self._l_rate_decay = l_rate_decay
         self._l_rate_decay_n_epoch = l_rate_decay_n_epoch
         for i in range(n_epoch):
-            self.i_epoch = i
+            self._i_epoch = i
             # Разделим выборку на батчи
-            if batch_size is None:
-                batch_x = X
-                batch_y = y
-            else:
-                batch_x, batch_y = self._gen_batch(X, y, batch_size)
+            batch_x, batch_y = self._gen_batch(X, y, batch_size)
             # Последний слой считает ошибку, для нее требуются правильные ответы
             self.net.layers[-1].y = batch_y
             self._forward_propagation(batch_x)
             self._save_loss()
             self._back_propagation(batch_y)
-            if i % 100 == 0:
-                print(f"Epoch {i}: loss = {self.current_signals[-1]}\n")
-            if i % self._l_rate_decay_n_epoch == 0:
-                self._l_rate_reduce()
+            # Вывод в консоль текущей ошибки
+            self._print_loss()
+            # Понижение l_rate каждые l_rate_decay_n_epoch эпох
+            self._l_rate_reduce()
 
     def _forward_propagation(self, X, prediction=False):
         temp_in = X
@@ -50,38 +49,28 @@ class BackPropagation:
             temp_in = temp_out
 
     def _back_propagation(self, y):
-        l_indexes = range(self.net.n_layers)
+        # Без учета первого слоя, так как в нем не нужно обновлять веса
+        l_indexes = range(1, self.net.n_layers)
         # Инициализаируем обратно распростроняющийся сигнал ds
         ds = 1
-        dws = []
-        dbs = []
         for i in reversed(l_indexes):
             # layer указывает на тоже место в памяти, что и self.net.layers[i]
             layer = self.net.layers[i]
             # Это условие выполняется в слоях, где требуется обновление весов
-            if self.net.layers[i].has_neurons() and not isinstance(layer, Input):
+            if self.net.layers[i].has_neurons():
                 dw, db, ds = layer.back(self.current_signals[i-1], ds)
-                dw = dw/len(ds)
-                db = db/len(ds)
-                dws.append(dw)
-                dbs.append(db)
+                self._update_weights(layer, dw, db)
             else:
+                # Условие для последнего слоя, где считается Loss
                 if isinstance(layer, LossLayer):
                     ds = layer.back(self.current_signals[i-1], ds)
                     continue
+                # Все остальные слои
                 ds = layer.back(self.current_signals[i], ds)
-        # dlr попровка для оптимизации learning rate
-        for i in l_indexes:
-            layer = self.net.layers[i]
-            # Это условие выполняется в слоях, где требуется обновление весов
-            if layer.has_neurons() and not isinstance(layer, Input):
-                dw = dws.pop()
-                db = dbs.pop()
-                dlr = layer.update_lr(dw, self.i_epoch)
-                layer.weights -= dw * self.l_rate * dlr
-                layer.bias -= db * self.l_rate
 
     def _gen_batch(self, X, y, batch_size):
+        if batch_size is None:
+            return X, y
         batch_x = []
         batch_y = []
         n_samples = len(X)
@@ -96,7 +85,18 @@ class BackPropagation:
         self.losses.append(loss)
 
     def _l_rate_reduce(self):
-        self.l_rate *= self._l_rate_decay
+        if self._i_epoch % self._l_rate_decay_n_epoch == 0:
+            self._l_rate *= self._l_rate_decay
+
+    def _print_loss(self):
+        if self._i_epoch % 100 == 0:
+            print(f"Epoch {self._i_epoch}: loss = {self.current_signals[-1]}")
+
+    def _update_weights(self, layer, dw, db):
+        # dlr попровка для оптимизации learning rate
+        dlr = layer.update_lr(dw, self._i_epoch)
+        layer.weights -= dw * self._l_rate * dlr
+        layer.bias -= db * self._l_rate
 
     def predict(self, X):
         self._forward_propagation(X, prediction=True)

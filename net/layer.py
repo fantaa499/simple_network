@@ -55,6 +55,9 @@ class Dense(Layer):
         dw = np.dot(signal.T, ds)
         db = np.sum(ds, axis=0)
         new_ds = np.dot(ds, self.weights.T)
+        # Для обновления весов, берем среднее по батчу
+        dw = dw / len(new_ds)
+        db = db / len(new_ds)
         return dw, db, new_ds
 
     def has_neurons(self):
@@ -94,14 +97,14 @@ class Softmax(Layer):
 
     def back(self, signal, ds):
         # Запишим сигнал в форме столбца
-        # gradient = []
-        # for s, ds_one_sample in zip(signal, ds):
-        #     s = s.reshape(-1, 1)
-        #     f = np.diagflat(s) - np.dot(s, s.T)
-        #     gradient_one_sample = np.dot(f, ds_one_sample)
-        #     gradient.append(gradient_one_sample)
-        # return np.array(gradient)
-        return signal - ds
+        gradient = []
+        for s, ds_one_sample in zip(signal, ds):
+            s = s.reshape(-1, 1)
+            f = np.diagflat(s) - np.dot(s, s.T)
+            gradient_one_sample = np.dot(f, ds_one_sample)
+            gradient.append(gradient_one_sample)
+        return np.array(gradient)
+        # return signal - ds
 
     def has_neurons(self):
         return False
@@ -116,7 +119,6 @@ class ReLu(Layer):
 
     def back(self, signal, ds):
         f = signal.copy()
-        # f[:] = 0
         f[signal > 0] = 1
         f[signal <= 0] = 0
         return f*ds
@@ -173,8 +175,7 @@ class LossSoftmax(LossLayer):
 
     def back(self, signal, ds):
         dL = np.array(-1 * np.divide(self._y, signal))
-        return self._y
-        # return ds * dL
+        return ds * dL
 
 
 class LossMSE(LossLayer):
