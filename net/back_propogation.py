@@ -1,5 +1,4 @@
 from random import randint
-import numpy as np
 from net.layer import LossLayer, Input
 
 
@@ -16,7 +15,7 @@ class BackPropagation:
         self._l_rate_decay = 0
         self._l_rate_decay_n_epoch = 0
 
-    def fit(self, X, y, n_epoch, batch_size=None, l_rate=1, l_rate_decay=0.1, l_rate_decay_n_epoch=20):
+    def fit(self, X, y, n_epoch, batch_size=None, l_rate=1, l_rate_decay=0.1, l_rate_decay_n_epoch=20, display=True):
         self._l_rate = l_rate
         self._l_rate_decay = l_rate_decay
         self._l_rate_decay_n_epoch = l_rate_decay_n_epoch
@@ -30,7 +29,7 @@ class BackPropagation:
             self._save_loss()
             self._back_propagation(batch_y)
             # Вывод в консоль текущей ошибки
-            self._print_loss()
+            self._print_loss(display)
             # Понижение l_rate каждые l_rate_decay_n_epoch эпох
             self._l_rate_reduce()
 
@@ -88,8 +87,8 @@ class BackPropagation:
         if self._i_epoch % self._l_rate_decay_n_epoch == 0:
             self._l_rate *= self._l_rate_decay
 
-    def _print_loss(self):
-        if self._i_epoch % 100 == 0:
+    def _print_loss(self, display):
+        if self._i_epoch % 100 == 0 and display:
             print(f"Epoch {self._i_epoch}: loss = {self.current_signals[-1]}")
 
     def _update_weights(self, layer, dw, db):

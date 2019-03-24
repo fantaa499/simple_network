@@ -140,6 +140,19 @@ class Sigmoid(Layer):
         return False
 
 
+class Tanh(Layer):
+    def forward(self, signal):
+        f = np.tanh(signal)
+        return f
+
+    def back(self, signal, ds):
+        f = 1/(np.cosh(signal)**2)
+        return f * ds
+
+    def has_neurons(self):
+        return False
+
+
 # TODO: для каждого типа слоя закрепить абстрактный слой
 class LossLayer(Layer):
     def __init__(self):
