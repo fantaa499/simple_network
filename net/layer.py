@@ -94,13 +94,14 @@ class Softmax(Layer):
 
     def back(self, signal, ds):
         # Запишим сигнал в форме столбца
-        gradient = []
-        for s, ds_one_sample in zip(signal, ds):
-            s = s.reshape(-1, 1)
-            f = np.diagflat(s) - np.dot(s, s.T)
-            gradient_one_sample = np.dot(f, ds_one_sample)
-            gradient.append(gradient_one_sample)
-        return np.array(gradient)
+        # gradient = []
+        # for s, ds_one_sample in zip(signal, ds):
+        #     s = s.reshape(-1, 1)
+        #     f = np.diagflat(s) - np.dot(s, s.T)
+        #     gradient_one_sample = np.dot(f, ds_one_sample)
+        #     gradient.append(gradient_one_sample)
+        # return np.array(gradient)
+        return signal - ds
 
     def has_neurons(self):
         return False
@@ -114,10 +115,11 @@ class ReLu(Layer):
         return f
 
     def back(self, signal, ds):
-        f = signal
-        f[:] = 0
+        f = signal.copy()
+        # f[:] = 0
         f[signal > 0] = 1
-        return ds * f
+        f[signal <= 0] = 0
+        return f*ds
 
     def has_neurons(self):
         return False
@@ -128,9 +130,9 @@ class Sigmoid(Layer):
         f = 1 / (1 + np.exp(-signal))
         return f
 
-    def back(self, signal):
+    def back(self, signal, ds):
         f = self.forward(signal) * (1 - self.forward(signal))
-        return f
+        return f * ds
 
     def has_neurons(self):
         return False
@@ -171,6 +173,16 @@ class LossSoftmax(LossLayer):
 
     def back(self, signal, ds):
         dL = np.array(-1 * np.divide(self._y, signal))
-        return ds * dL
+        return self._y
+        # return ds * dL
 
+
+class LossMSE(LossLayer):
+    def forward(self, signal):
+        L = ((signal - self._y)**2).mean()/2
+        return L
+
+    def back(self, signal, ds):
+        dL = (signal - self._y)
+        return dL
 

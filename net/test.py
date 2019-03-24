@@ -1,7 +1,7 @@
 import numpy as np
 import random
 
-from net.layer import Dense, Input, ReLu, Softmax, LossSoftmax
+from net.layer import Dense, Input, ReLu, Softmax, LossSoftmax, LossMSE
 from net.network import Network
 from net.back_propogation import BackPropagation
 import matplotlib.pyplot as plt
@@ -12,7 +12,7 @@ layers = [Input(2),
           LossSoftmax()]
 
 net = Network(layers)
-solver = BackPropagation(net, l_rate=2, l_rate_decay_n_epoch=40)
+solver = BackPropagation(net)
 
 X = np.array([[-0.1, 1.4],
               [-0.5, 0.2],

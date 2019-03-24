@@ -4,11 +4,8 @@ from net.layer import LossLayer, Input
 
 
 class BackPropagation:
-    def __init__(self, network, l_rate=1, l_rate_decay=0.1, l_rate_decay_n_epoch=20):
+    def __init__(self, network, ):
         self.net = network
-        self.l_rate = l_rate
-        self._l_rate_decay = l_rate_decay
-        self._l_rate_decay_n_epoch = l_rate_decay_n_epoch
         # Вспомогательная переменная в которой будут храниться
         # промежуточные значения во время обучения
         self.current_signals = []
@@ -16,7 +13,10 @@ class BackPropagation:
         # номер эпохи
         self.i_epoch = 0
 
-    def fit(self, X, y, n_epoch, batch_size=None):
+    def fit(self, X, y, n_epoch, batch_size=None, l_rate=1, l_rate_decay=0.1, l_rate_decay_n_epoch=20):
+        self.l_rate = l_rate
+        self._l_rate_decay = l_rate_decay
+        self._l_rate_decay_n_epoch = l_rate_decay_n_epoch
         for i in range(n_epoch):
             self.i_epoch = i
             # Разделим выборку на батчи
@@ -32,7 +32,7 @@ class BackPropagation:
             self._back_propagation(batch_y)
             if i % 100 == 0:
                 print(f"Epoch {i}: loss = {self.current_signals[-1]}\n")
-            if i % self._l_rate_decay_n_epoch:
+            if i % self._l_rate_decay_n_epoch == 0:
                 self._l_rate_reduce()
 
     def _forward_propagation(self, X, prediction=False):
@@ -53,6 +53,8 @@ class BackPropagation:
         l_indexes = range(self.net.n_layers)
         # Инициализаируем обратно распростроняющийся сигнал ds
         ds = 1
+        dws = []
+        dbs = []
         for i in reversed(l_indexes):
             # layer указывает на тоже место в памяти, что и self.net.layers[i]
             layer = self.net.layers[i]
@@ -61,15 +63,23 @@ class BackPropagation:
                 dw, db, ds = layer.back(self.current_signals[i-1], ds)
                 dw = dw/len(ds)
                 db = db/len(ds)
-                # dlr попровка для оптимизации learning rate
-                dlr = layer.update_lr(dw, self.i_epoch)
-                layer.weights -= dw * self.l_rate * dlr
-                layer.bias -= db * self.l_rate
+                dws.append(dw)
+                dbs.append(db)
             else:
                 if isinstance(layer, LossLayer):
                     ds = layer.back(self.current_signals[i-1], ds)
                     continue
                 ds = layer.back(self.current_signals[i], ds)
+        # dlr попровка для оптимизации learning rate
+        for i in l_indexes:
+            layer = self.net.layers[i]
+            # Это условие выполняется в слоях, где требуется обновление весов
+            if layer.has_neurons() and not isinstance(layer, Input):
+                dw = dws.pop()
+                db = dbs.pop()
+                dlr = layer.update_lr(dw, self.i_epoch)
+                layer.weights -= dw * self.l_rate * dlr
+                layer.bias -= db * self.l_rate
 
     def _gen_batch(self, X, y, batch_size):
         batch_x = []
@@ -97,4 +107,5 @@ class BackPropagation:
         return self.losses
 
     def get_weights(self):
-        return self.net.weights
+        ws = [layer.weights for layer in self.net.layers if layer.has_neurons() and not isinstance(layer, Input)]
+        return ws
