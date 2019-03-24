@@ -31,9 +31,8 @@
 - LossSoftamx
 - LossMSE
 
- 
-    net = Network(layers)
-    solver = BackPropagation(net)
+        net = Network(layers)
+        solver = BackPropagation(net)
     
 Таким образом, определяется сеть и выбирается алгоритм оптимизации.
 Пока что реализован, только алгоритм обратного распространения.
