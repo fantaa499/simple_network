@@ -1,98 +1,104 @@
-import numpy as np
+from random import randint
+from net.layer import LossLayer, Input
 
 
 class BackPropagation:
-    def __init__(self, network, l_rate=1):
+    def __init__(self, network, ):
         self.net = network
-        self.BIAS = 1
-        self.l_rate = l_rate
         # Вспомогательная переменная в которой будут храниться
         # промежуточные значения во время обучения
         self.current_signals = []
         self.losses = []
+        # номер эпохи
+        self._i_epoch = 0
+        self._l_rate = 0
+        self._l_rate_decay = 0
+        self._l_rate_decay_n_epoch = 0
 
-    def fit(self, X, y, n_epoch):
-        f_activations = self.net.f_activations
-        X_with_bias = self.__add_bias_to_X(X)
-        for _ in range(n_epoch):
-            weights = self.net.weights
-            self.__forward_propagation(X_with_bias, weights, f_activations)
-            self.__save_loss(y)
-            self.__back_propagation(y, weights, f_activations)
+    def fit(self, X, y, n_epoch, batch_size=None, l_rate=1, l_rate_decay=0.1, l_rate_decay_n_epoch=20, display=True):
+        self._l_rate = l_rate
+        self._l_rate_decay = l_rate_decay
+        self._l_rate_decay_n_epoch = l_rate_decay_n_epoch
+        for i in range(n_epoch):
+            self._i_epoch = i
+            # Разделим выборку на батчи
+            batch_x, batch_y = self._gen_batch(X, y, batch_size)
+            # Последний слой считает ошибку, для нее требуются правильные ответы
+            self.net.layers[-1].y = batch_y
+            self._forward_propagation(batch_x)
+            self._save_loss()
+            self._back_propagation(batch_y)
+            # Вывод в консоль текущей ошибки
+            self._print_loss(display)
+            # Понижение l_rate каждые l_rate_decay_n_epoch эпох
+            self._l_rate_reduce()
 
-    def __forward_propagation(self, X, weights, f_activations):
+    def _forward_propagation(self, X, prediction=False):
         temp_in = X
-        temp_out = 0
         # В current_signals хранятся значения сигналов после каждого слоя,
         # начиная со входа, заканчивая выходом.
         self.current_signals[:] = []
-        self.current_signals.append(X)
         # Прямое распростронение
-        for w_layer, f in zip(weights, f_activations):
-            temp_out = f(np.dot(temp_in, w_layer))
+        for layer in self.net.layers:
+            # В случае предсказания, не вычисляем ошибку, так как нет массива ответов
+            if prediction and isinstance(layer, LossLayer):
+                break
+            temp_out = layer.forward(temp_in)
             self.current_signals.append(temp_out)
             temp_in = temp_out
 
-    def __back_propagation(self, y, weights, f_activation):
-        # результат храниться в последнем элементе массива
-        # current_signals
-        corrected_ws = []
-        reversed_w = weights[::-1]
-        reversed_f = f_activation[::-1]
-        reversed_cur_sig = self.current_signals[::-1]
-        # Флаг для первой итерации, на ней необходимо вычислить ошибку,
-        # зная y
-        is_first_iteration = True
-        answer = y
-        # Обратное распростронение начинается с конца, поэтому используем
-        # развернутые массивы
-        # Также в массиве reversed_cur_sig на один элемент больше чем в других массивах.
-        # Вынесем первый элемент который равен предсказанию на последнем слое
-        # в отдельную переменную
-        current_sig = reversed_cur_sig[0]
-        for w_layer, f, follow_sig in zip(reversed_w, reversed_f, reversed_cur_sig[1:]):
-            # temp error показывает как сильно нужно изменять веса
-            if is_first_iteration:
-                temp_error = answer - current_sig
-                is_first_iteration = False
+    def _back_propagation(self, y):
+        # Без учета первого слоя, так как в нем не нужно обновлять веса
+        l_indexes = range(1, self.net.n_layers)
+        # Инициализаируем обратно распростроняющийся сигнал ds
+        ds = 1
+        for i in reversed(l_indexes):
+            # layer указывает на тоже место в памяти, что и self.net.layers[i]
+            layer = self.net.layers[i]
+            # Это условие выполняется в слоях, где требуется обновление весов
+            if self.net.layers[i].has_neurons():
+                dw, db, ds = layer.back(self.current_signals[i-1], ds)
+                self._update_weights(layer, dw, db)
             else:
-                # На i шаге мы находимся на i слое с конца и хотим обновить
-                # i-е веса. А так как мы начинаем распростронение с i-1 слоя
-                # с конца, необходимо использовать i-1 веса
-                temp_error = np.dot(temp_delta, w_previous_layer.T)
-            # temp delta указывает в какую сторону необходимо изменять веса
-            temp_delta = temp_error * f(current_sig, deriv=True)
-            # Коррекция весов.
-            d_w = np.dot(follow_sig.T, temp_delta)
-            # Корректированные веса
-            w_corr_temp = w_layer + self.l_rate * d_w
-            corrected_ws.append(w_corr_temp)
-            # Обновление локальных переменных
-            w_previous_layer = w_layer
-            current_sig = follow_sig
-        # обновляем веса сети, необходимо развернуть
-        # массив, так как веса добавлялись в обратном порядке
-        # TODO: corrected = net.weights ??
-        self.net.set_weights(corrected_ws[::-1])
+                # Условие для последнего слоя, где считается Loss
+                if isinstance(layer, LossLayer):
+                    ds = layer.back(self.current_signals[i-1], ds)
+                    continue
+                # Все остальные слои
+                ds = layer.back(self.current_signals[i], ds)
 
-    def __add_bias_to_X(self, X):
-        # Добавляем каждому сэмплу элемент отклонения
-        n_in = len(X)
-        bias = np.zeros(n_in) + self.BIAS
-        bias.resize(n_in, 1)
-        X_with_bias = np.hstack([X, bias])
-        return X_with_bias
+    def _gen_batch(self, X, y, batch_size):
+        if batch_size is None:
+            return X, y
+        batch_x = []
+        batch_y = []
+        n_samples = len(X)
+        for _ in range(batch_size):
+            i = randint(0, n_samples - 1)
+            batch_x.append(X[i])
+            batch_y.append(y[i])
+        return batch_x, batch_y
 
-    def __save_loss(self, y):
-        # Метрика - среднеквадратичное отклонение
-        loss = ((y - self.current_signals[-1])**2).mean()
+    def _save_loss(self):
+        loss = self.current_signals[-1]
         self.losses.append(loss)
 
+    def _l_rate_reduce(self):
+        if self._i_epoch % self._l_rate_decay_n_epoch == 0:
+            self._l_rate *= self._l_rate_decay
+
+    def _print_loss(self, display):
+        if self._i_epoch % 100 == 0 and display:
+            print(f"Epoch {self._i_epoch}: loss = {self.current_signals[-1]}")
+
+    def _update_weights(self, layer, dw, db):
+        # dlr попровка для оптимизации learning rate
+        dlr = layer.update_lr(dw, self._i_epoch)
+        layer.weights -= dw * self._l_rate * dlr
+        layer.bias -= db * self._l_rate
+
     def predict(self, X):
-        weights = self.net.weights
-        f_activations = self.net.f_activations
-        X_with_bias = self.__add_bias_to_X(X)
-        self.__forward_propagation(X_with_bias, weights, f_activations)
+        self._forward_propagation(X, prediction=True)
         prediction = self.current_signals[-1]
         return prediction
 
@@ -100,4 +106,5 @@ class BackPropagation:
         return self.losses
 
     def get_weights(self):
-        return self.net.weights
+        ws = [layer.weights for layer in self.net.layers if layer.has_neurons() and not isinstance(layer, Input)]
+        return ws
